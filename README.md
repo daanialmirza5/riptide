@@ -1,173 +1,316 @@
-# Riptide — Cascading Failure Intelligence
+<div align="center">
 
-> **Track 01 · Software & AI.** An AI system that predicts cascading software failures, identifies their root causes, and recommends the optimal recovery strategy *before* the entire system crashes.
+<img src="frontend/public/favicon.svg" width="84" alt="Riptide logo" />
 
-Riptide watches a live, 20-service production platform (a digital twin of an e-commerce stack), forecasts which services will fail next and when, traces the failure back to its origin, and **simulates every candidate fix two minutes into the future** before recommending one. All of it is shown in a real-time 3D command center.
+# Riptide
+
+### See the outage *before* it cascades.
+
+An AI system that **predicts cascading software failures**, **pinpoints their root cause** and **simulates every recovery strategy**, all before the system crashes.
+
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-riptide--production.up.railway.app-22d3ee?style=for-the-badge&logo=railway&logoColor=white)](https://riptide-production-d8c4.up.railway.app)
+&nbsp;
+[![Track](https://img.shields.io/badge/Orca%20Coder-Track%2001%20·%20Software%20%26%20AI-a78bfa?style=for-the-badge)](#problem-statement)
+
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-WebSocket-009688?logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
+![Three.js](https://img.shields.io/badge/Three.js-React%20Three%20Fiber-000000?logo=threedotjs&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6?logo=typescript&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-30%20passing-34d399)
+
+**[🌐 Live app](https://riptide-production-d8c4.up.railway.app)** · **[🖥️ Command Center](https://riptide-production-d8c4.up.railway.app/console)** · **[🏆 Benchmark](https://riptide-production-d8c4.up.railway.app/benchmark)** · **[📄 Log Analyzer](https://riptide-production-d8c4.up.railway.app/analyzer?sample=cache-stampede)**
+
+<img src="docs/screenshots/06-cascade.png" alt="Riptide 3D command center during a cascading failure" width="100%" />
+
+</div>
 
 ---
 
-## What it does
+## Table of contents
 
-| Capability | How |
-|---|---|
-| **Predict** which components fail next | Per-metric EWMA baselines (learned only while healthy) → anomaly z-scores; least-squares trend extrapolation to failure thresholds (OOM, pool exhaustion, error budget, latency ceiling) → per-service *time-to-failure* |
-| **Trace** how the failure spreads | Noisy-OR propagation of failure probability over the weighted dependency DAG, with propagation delays → a predicted **failure wavefront** (who fails, in what order, how soon) |
-| **Identify the root cause** | Personalised PageRank over the anomalous subgraph (MicroRCA-style, edges weighted by health correlation) + anomaly onset order + dependency isolation + blast-radius coverage, then signature classification (memory leak, bad deploy, pool exhaustion, cache failure, broker backlog, provider degradation, traffic overload) with explainable evidence |
-| **Compare recovery strategies** | For each candidate (rollback, restart, scale-out, circuit breaker, failover, rate limit, provider switch, rebalance), fork the digital twin, apply it, simulate 120 s, and score availability, time-to-recover, peak blast radius, end health and operational risk against a *do-nothing* baseline |
-| **Run the incident** | Incidents open automatically on prediction, record a full timeline, measure **prediction lead time** and **failures prevented**, and export a markdown post-mortem |
-| **Analyse your own logs** | Upload any log file: Riptide parses levels/services, infers the dependency graph from upstream references, detects failure precursors and ranks the probable origin |
-| **Autopilot (self-healing)** | One switch closes the loop: once a diagnosis is confident, Riptide simulates the options and executes the winner itself, with a cooldown so each action can take effect |
-| **What-if blast radius** | Click any service → *Simulate outage*: a forked twin hard-fails it for 60 s and every casualty is ringed in magenta in 3D with its failure time |
-| **Built-in benchmark** | Replays every failure class on independent twins (3 seeds each) and reports root-cause accuracy, warning lead time, availability with vs without Riptide, and false alarms |
+- [Problem statement](#problem-statement)
+- [The idea](#the-idea)
+- [Screenshots](#screenshots)
+- [Features](#features)
+- [Measured results](#measured-results)
+- [How it works](#how-it-works)
+- [Architecture](#architecture)
+- [Try it in 60 seconds](#try-it-in-60-seconds)
+- [Run locally](#run-locally)
+- [API reference](#api-reference)
+- [Project structure](#project-structure)
+- [Tech stack](#tech-stack)
 
-### Measured results (Benchmark page, `GET /api/benchmark`)
+---
+
+## Problem statement
+
+> **01 | Software & AI.** Build an AI system that predicts cascading software failures, identifies their root causes, and recommends the optimal recovery strategy before an entire system crashes. Analyse simulated server logs and service dependencies to predict which components may fail next, trace how failures could spread, and compare recovery strategies through a live dashboard.
+
+## The idea
+
+In production, services rarely fail alone. A memory leak in **Payment** becomes a **Checkout** outage, then an **API gateway** outage, and on-call engineers find out from the alerts after customers already have.
+
+Riptide watches a live, 20-service e-commerce platform (a **digital twin**). It:
+1. forecasts **which service fails next and when**,
+2. traces **how the failure will spread**,
+3. names the **root cause with evidence**,
+4. **forks the system once per candidate fix and simulates two minutes into the future** of each, so it can recommend, or automatically apply, the fix that actually works.
+
+> Riptide never sees what was injected. Chaos scenarios only change the twin's physics; the AI works from **metrics and logs alone**.
+
+---
+
+## Screenshots
+
+<table>
+<tr>
+<td width="50%"><b>Landing</b><br/><img src="docs/screenshots/01-landing.png" alt="Landing page" /></td>
+<td width="50%"><b>Live 3D Command Center</b><br/><img src="docs/screenshots/02-command-center.png" alt="Command center, healthy" /></td>
+</tr>
+<tr>
+<td><b>Prediction: heap leak forecast before any failure</b><br/><img src="docs/screenshots/03-prediction.png" alt="Failure prediction" /></td>
+<td><b>Root cause with explainable evidence</b><br/><img src="docs/screenshots/04-root-cause.png" alt="Root cause analysis" /></td>
+</tr>
+<tr>
+<td><b>Recovery Lab: counterfactual futures per strategy</b><br/><img src="docs/screenshots/05-recovery-lab.png" alt="Recovery lab" /></td>
+<td><b>Cascade in progress: failure climbing the tiers</b><br/><img src="docs/screenshots/06-cascade.png" alt="Cascading failure" /></td>
+</tr>
+<tr>
+<td><b>Incidents: timeline, lead time, failures prevented</b><br/><img src="docs/screenshots/07-incidents.png" alt="Incidents" /></td>
+<td><b>Benchmark: measured, not claimed</b><br/><img src="docs/screenshots/08-benchmark.png" alt="Benchmark" /></td>
+</tr>
+<tr>
+<td colspan="2"><b>Log Analyzer: bring your own logs</b><br/><img src="docs/screenshots/09-log-analyzer.png" alt="Log analyzer" /></td>
+</tr>
+</table>
+
+---
+
+## Features
+
+| | Feature | What it does |
+|---|---|---|
+| 🔮 | **Failure prediction** | Learns a healthy baseline per metric, scores anomalies, and extrapolates trends to failure thresholds (OOM, pool exhaustion, error budget, latency ceiling) to estimate **time to failure** |
+| 🌊 | **Cascade forecasting** | Propagates failure probability across the weighted dependency graph to predict the **failure wavefront**: who fails, in what order, how soon |
+| 🎯 | **Root-cause analysis** | Personalised PageRank over anomalous services plus onset order, dependency isolation and failure signatures. Names one of 7 failure classes with **explainable evidence** |
+| 🧪 | **Recovery Lab** | Forks the digital twin once per strategy (rollback, restart, scale-out, circuit breaker, failover, rate limiting, provider switch, rebalance), simulates 120 s, and ranks by availability, time to recover, services lost and risk against *do nothing* |
+| 🤖 | **Autopilot** | Self-healing: when the diagnosis is confident, Riptide simulates and **executes the best fix with no human click** |
+| 💥 | **What-if blast radius** | Click any service and choose *Simulate outage*: every casualty is ringed in 3D with the second it fails |
+| 🧭 | **Live 3D Command Center** | Three-tier topology with request particles, red failure pulses, violet predicted-cascade pulses and risk rings, streamed at 1 Hz over WebSocket |
+| 🧾 | **Incident management** | Auto-opened incidents, live lifecycle (Detect → Predict → Diagnose → Recover → Resolve), prediction lead time, failures prevented, **downloadable post-mortem** |
+| 📄 | **Log Analyzer** | Upload real logs: infers service dependencies, detects precursors (heap pressure, pool exhaustion, retry storms, crash loops) and names the probable origin |
+| 🏆 | **Benchmark** | Replays every failure class on independent twins and reports accuracy, lead time, availability saved and false alarms |
+| ⚡ | **Chaos Lab** | 7 realistic scenarios: memory leak, DB pool exhaustion, cache failure, bad deploy, flash-sale surge, provider brown-out, Kafka stall |
+
+---
+
+## Measured results
+
+From the built-in benchmark ([live](https://riptide-production-d8c4.up.railway.app/benchmark), `GET /api/benchmark`): 7 failure classes × 3 independent seeds.
 
 | Metric | Result |
 |---|---|
-| Correct root cause | **100%** (21/21 replayed incidents) |
-| Root cause named before any service failed | **100%** |
-| Mean warning before the first failure | **≈39 s** (64–74 s for slow-burn leaks / pool exhaustion / broker stalls) |
-| Mean time to correct diagnosis | **≈9.6 s** from fault onset |
-| Availability over the next 2 min | **94%** with Riptide's fix vs **71%** doing nothing |
-| False alarms | **0** in 15 min of healthy traffic |
+| ✅ Correct root cause | **100%** (21 / 21 incidents) |
+| ⏱️ Root cause named before any service failed | **100%** |
+| 🔔 Mean warning before the first failure | **≈ 39 s** (64–74 s for slow-burn faults) |
+| 🧠 Mean time to correct diagnosis | **≈ 9.6 s** from fault onset |
+| 📈 Availability over the next 2 minutes | **94%** with Riptide vs **71%** doing nothing |
+| 🚫 False alarms | **0** in 15 minutes of healthy traffic |
 
-These are measured on the built-in digital twin, not production traffic. The twin's physics and the scenarios were written by the same team, so the numbers show the pipeline working end to end, not real-world accuracy.
+| Scenario | Chosen fix | Availability (nothing → Riptide) |
+|---|---|---|
+| Payment memory leak | Roll back Payment | 96% → 100% |
+| Database pool exhaustion | Fail over Postgres | 84% → 100% |
+| Cache node failure | Restart + bypass Redis | 54% → 98% |
+| Faulty checkout release | Roll back Checkout | 94% → 99% |
+| Flash-sale traffic surge | Adaptive rate limiting | 6% → 65% |
+| Payment provider brown-out | Switch to backup provider | 74% → 100% |
+| Kafka partition stall | Rebalance Kafka | 90% → 100% |
 
-Riptide never sees the injected ground truth. Chaos scenarios only change the twin's physics; the AI works from metrics and logs alone.
-
----
-
-## Quick start
-
-### Option A: Docker (one container, production build)
-
-```bash
-docker compose up --build
-# open http://localhost:8000
-```
-
-### Option B: local development
-
-```bash
-# backend (Python 3.10+)
-cd backend
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-
-# frontend (Node 18+), in another terminal
-cd frontend
-npm install
-npm run dev
-# open http://localhost:5173  (proxies /api and /ws to :8000)
-```
-
-For a single-process local production run, `npm run build` in `frontend/`, then start uvicorn: FastAPI serves `frontend/dist` automatically.
-
-### Tests
-
-```bash
-cd backend && python -m pytest -q
-```
-
-The suite checks, for every scenario, that the platform raises no false alarms when healthy, that the correct root cause and failure class are found, that the recommended strategy beats doing nothing, that failures are predicted ahead of time, that early remediation counts as a prevented failure, and that applying the recommendation resolves the incident.
+> These results are measured on the simulated digital twin, not production traffic. They demonstrate that the full pipeline works end to end; they are not a claim of real-world accuracy.
 
 ---
 
-## Five-minute demo script
+## How it works
 
-1. **Landing → Open Command Center.** The 3D topology shows 20 services in three tiers (edge, application, data). Cyan particles are live requests.
-2. **Chaos lab → "Payment memory leak".** Within seconds the payment node grows a violet *risk ring*; *Forecast* shows `Heap memory rising 0.5%/s → limit in ~80s` and the predicted wavefront `payment → checkout → api-gateway`.
-3. **Root cause tab.** *Memory leak in payment, 100% confidence*, with evidence: heap slope, the release that preceded it, GC-pause logs, healthy downstream dependencies.
-4. **Recover → Recovery Lab.** Every candidate future is simulated. *Roll back Payment* wins (≈99.8% availability, zero services lost) against *Do nothing* (OOM crash, checkout outage). Rolling restart only buys time, because the leak recurs.
-5. **Apply.** Back in the console, the rollback progress bar runs and the node turns green.
-6. **Incidents.** The timeline shows detection → prediction → diagnosis → action → resolution, with *failures prevented* and a downloadable post-mortem.
-7. Turn on **Autopilot**, inject **Cache node failure**, and keep your hands off: Riptide detects the cache-miss storm, names Redis, simulates and restarts it, and the incident closes itself.
-8. Click **Postgres Primary → Simulate outage** to show the what-if blast radius in 3D.
-9. Finish on **Benchmark**: 100% root-cause accuracy, ≈39 s warning, 94% vs 71% availability, 0 false alarms.
-10. Optional: **/analyzer?sample=cache-stampede** diagnoses a log file on arrival.
+```mermaid
+flowchart LR
+  A[📡 Observe<br/>metrics + logs @ 1 Hz] --> B[🔮 Predict<br/>EWMA baselines<br/>trend → time-to-failure]
+  B --> C[🌊 Propagate<br/>noisy-OR over<br/>dependency graph]
+  C --> D[🎯 Diagnose<br/>PageRank + onset +<br/>isolation + signatures]
+  D --> E[🧪 Simulate<br/>fork twin × N strategies<br/>120 s counterfactuals]
+  E --> F[🛠️ Recover<br/>recommend or Autopilot]
+  F --> G[🧾 Document<br/>timeline · lead time · post-mortem]
+```
+
+| Stage | Technique |
+|---|---|
+| **Baselines & anomalies** | Exponentially-weighted mean/variance per metric, updated **only while healthy** so incidents don't poison the baseline; z-score anomaly intensity |
+| **Time to failure** | Least-squares slope over a sliding window with a significance test (slope > 2.5 × standard error), extrapolated to each metric's failure threshold |
+| **Cascade risk** | Noisy-OR propagation in topological order: `P(i) = 1 − (1 − p_local) · Π(1 − w·P(dep))`, with criticality weights and propagation delays giving a predicted ETA per service |
+| **Root cause** | Personalised PageRank on the anomalous subgraph (edges weighted by health correlation, MicroRCA-style), combined with dependency isolation, onset order, blast-radius coverage, and load-coupling edges (cache → database fall-through) |
+| **Classification** | Signature rules over metric trends, change events (deploys), crash events and log patterns → 7 failure classes |
+| **Recovery** | Strategies generated from the diagnosis, each evaluated on a deep-copied twin. Score = availability, time to recover, peak failures, end health and action risk |
 
 ---
 
 ## Architecture
 
 ```mermaid
-flowchart LR
-  subgraph Twin["Digital twin (simulator.py)"]
-    T[Traffic + diurnal demand] --> S[20 services<br/>cpu · mem · p99 · errors · saturation]
-    F[Chaos faults] --> S
-    A[Remediation actions] --> S
-    S -->|1-tick lag| S
-    S --> L[Structured logs]
+flowchart TB
+  subgraph Engine["⚙️ Riptide engine (FastAPI · Python)"]
+    direction LR
+    T[Digital twin<br/>20 services · faults · actions · logs] --> P[Predictor]
+    P --> R[Root-cause analysis]
+    R --> X[Recovery Lab<br/>counterfactual forks]
+    R --> I[Incident manager]
+    X --> AP[Autopilot]
+    AP --> T
+    BM[Benchmark] -.independent twins.-> T
+    LA[Log analyzer]
   end
-  S --> P[Predictor<br/>EWMA baselines · trend ETA · noisy-OR cascade]
-  P --> R[RCA<br/>PageRank · onset · isolation · signatures]
-  L --> R
-  R --> X[Recovery lab<br/>fork twin × N strategies · 120 s counterfactuals]
-  P --> I[Incident manager<br/>timeline · lead time · MTTR]
-  R --> I
-  P & R & I --> E[Engine loop · 1 Hz]
-  E -->|WebSocket /ws| UI[React + three.js console]
-  UI -->|REST /api| E
-  U[Uploaded logs] --> LA[Log analyzer<br/>patterns · dependency mining] --> UI
+  Engine -- "WebSocket /ws · 1 Hz snapshots" --> UI
+  UI -- "REST /api" --> Engine
+  subgraph UI["🖥️ Console (React · TypeScript · Three.js)"]
+    direction LR
+    L[Landing] --- CC[3D Command Center] --- RL[Recovery Lab] --- IN[Incidents] --- AN[Log Analyzer] --- BE[Benchmark]
+  end
 ```
 
-```
-Orca/
-├─ backend/
-│  ├─ app/
-│  │  ├─ topology.py     service graph, criticality weights, DAG helpers
-│  │  ├─ simulator.py    digital twin: load, queueing, faults, actions, retries, logs
-│  │  ├─ predictor.py    baselines, anomaly, time-to-failure, cascade propagation
-│  │  ├─ rca.py          root-cause ranking + hypothesis classification
-│  │  ├─ recovery.py     strategy generation + counterfactual evaluation
-│  │  ├─ incidents.py    incident lifecycle, lead time, post-mortem export
-│  │  ├─ logparse.py     bring-your-own-logs analyzer
-│  │  ├─ scenarios.py    curated chaos scenarios
-│  │  ├─ engine.py       1 Hz loop, snapshots, WebSocket broadcast
-│  │  └─ main.py         FastAPI REST + WS, static UI hosting
-│  └─ tests/             behavioural tests for every scenario
-├─ frontend/
-│  └─ src/
-│     ├─ components/three/   NetworkScene (live 3D topology), HeroScene
-│     ├─ components/console/ KPIs, chaos lab, forecast/RCA/service panels, logs
-│     ├─ pages/              Landing, Console, Recovery, Incidents, Analyzer
-│     └─ lib/                API client, WebSocket feed, zustand store
-├─ Dockerfile            multi-stage: Vite build → slim Python runtime
-└─ docker-compose.yml
+A single Docker image: Vite builds the console, and FastAPI serves the API, the WebSocket stream and the static UI. It is deployed on **Railway**.
+
+---
+
+## Try it in 60 seconds
+
+1. Open the **[Command Center](https://riptide-production-d8c4.up.railway.app/console)** and press ⟳ **Reset** (top right).
+2. In **Chaos lab**, click **Payment memory leak**. Watch the **Forecast** panel predict the heap running out and the cascade forming.
+3. Open the **Root cause** tab: *Memory leak in Payment*, with its evidence.
+4. Click **Recover**. The Recovery Lab simulates every fix, and **Roll back Payment** wins. Click **Apply**.
+5. Turn on **Autopilot**, inject **Cache node failure**, and keep your hands off while Riptide heals the platform itself.
+6. Click any 3D node and choose **Simulate outage** to see its blast radius.
+7. Finish on **[Benchmark](https://riptide-production-d8c4.up.railway.app/benchmark)**.
+
+> On a free host the first load can take a few seconds while the container wakes up.
+
+---
+
+## Run locally
+
+**Docker (recommended)**
+```bash
+docker compose up --build
+# → http://localhost:8000
 ```
 
-### API
+**Development**
+```bash
+# backend
+cd backend
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
 
-| Method | Path | Purpose |
+# frontend (new terminal)
+cd frontend
+npm install
+npm run dev            # → http://localhost:5173 (proxies /api and /ws)
+```
+
+**Tests**
+```bash
+cd backend && python -m pytest -q     # 30 behavioural tests
+```
+
+The tests check, for every scenario:
+- no false alarms when healthy;
+- the correct root cause and failure class;
+- the recommended fix beats doing nothing;
+- failures are predicted ahead of time;
+- Autopilot heals without a human;
+- what-if runs never touch the live system.
+
+| Variable | Default | Purpose |
 |---|---|---|
-| `WS` | `/ws` | 1 Hz snapshots: services, KPIs, forecast, RCA, incident, new logs |
-| `GET` | `/api/topology` | services and weighted dependency edges |
-| `GET` | `/api/state` | current snapshot |
-| `GET` | `/api/catalog` | scenarios, fault kinds, actions |
-| `POST` | `/api/scenarios/{id}` | inject a chaos scenario |
-| `POST` | `/api/faults` | inject a custom fault `{kind, target, rate}` |
+| `PORT` | `8000` | HTTP port |
+| `RIPTIDE_SEED` | `42` | Deterministic simulation seed |
+| `RIPTIDE_STATIC` | `frontend/dist` | Built UI directory |
+| `CORS_ORIGINS` | `*` | Allowed origins |
+
+---
+
+## API reference
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `WS` | `/ws` | Live snapshots: services, KPIs, forecast, RCA, incident, logs |
+| `GET` | `/api/health` | Health check |
+| `GET` | `/api/topology` | Services and weighted dependency edges |
+| `GET` | `/api/state` | Current snapshot |
+| `GET` | `/api/catalog` | Scenarios, fault kinds, actions |
+| `POST` | `/api/scenarios/{id}` | Inject a chaos scenario |
+| `POST` | `/api/faults` | Inject a custom fault `{kind, target, rate}` |
 | `POST` | `/api/control` | `pause` · `resume` · `reset` · `step` · `speed` |
-| `GET` | `/api/services/{id}` | metric history, baselines, z-scores, forecast, logs |
-| `GET` | `/api/logs` | filter by `service`, `level`, `q` |
-| `POST` | `/api/recovery/evaluate` | simulate all candidate strategies |
-| `POST` | `/api/recovery/apply` | execute a simulated strategy `{strategyId}` |
-| `POST` | `/api/actions` | manual operator action `{kind, target}` |
-| `POST` | `/api/autopilot` | toggle self-healing `{enabled}` |
-| `POST` | `/api/whatif/{id}` | blast radius of a hypothetical outage |
-| `GET` | `/api/benchmark` | measured accuracy / lead time / availability (`?refresh=true` to re-run) |
-| `GET` | `/api/incidents` | incidents and stats (MTTR, lead time, prevented) |
-| `GET` | `/api/incidents/{id}/report` | markdown post-mortem |
-| `POST` | `/api/analyze/logs` | analyse uploaded log text `{text}` |
-| `GET` | `/api/analyze/sample?scenario=` | generate a realistic sample log |
+| `GET` | `/api/services/{id}` | Metric history, baselines, z-scores, forecast, logs |
+| `GET` | `/api/logs` | Filter by `service`, `level`, `q` |
+| `POST` | `/api/recovery/evaluate` | Simulate all candidate strategies |
+| `POST` | `/api/recovery/apply` | Execute a strategy `{strategyId}` |
+| `POST` | `/api/actions` | Manual action `{kind, target}` |
+| `POST` | `/api/autopilot` | Toggle self-healing `{enabled}` |
+| `POST` | `/api/whatif/{id}` | Blast radius of a hypothetical outage |
+| `GET` | `/api/benchmark` | Measured accuracy and impact (`?refresh=true`) |
+| `GET` | `/api/incidents` | Incidents and stats |
+| `GET` | `/api/incidents/{id}/report` | Markdown post-mortem |
+| `POST` | `/api/analyze/logs` | Analyse log text `{text}` |
+| `GET` | `/api/analyze/sample?scenario=` | Generate a realistic sample log |
 
-### Configuration
+---
 
-| Variable | Default | Meaning |
-|---|---|---|
-| `PORT` | `8000` | HTTP port (container) |
-| `RIPTIDE_SEED` | `42` | deterministic simulation seed |
-| `RIPTIDE_STATIC` | `frontend/dist` | built UI directory to serve |
-| `CORS_ORIGINS` | `*` | comma-separated allowed origins |
-| `VITE_API_BASE` | same origin | build-time API base for a separately hosted UI |
+## Project structure
 
-The digital twin is in-process state, so run **one worker** per instance (the Dockerfile does).
+```
+riptide/
+├── backend/
+│   ├── app/
+│   │   ├── topology.py     # service graph + criticality weights
+│   │   ├── simulator.py    # digital twin: load, queueing, faults, actions, retries, logs
+│   │   ├── predictor.py    # baselines, anomalies, time-to-failure, cascade propagation
+│   │   ├── rca.py          # root-cause ranking + failure classification
+│   │   ├── recovery.py     # strategy generation, counterfactual evaluation, what-if
+│   │   ├── incidents.py    # incident lifecycle, lead time, post-mortems
+│   │   ├── logparse.py     # bring-your-own-logs analyzer
+│   │   ├── benchmark.py    # offline evaluation on independent twins
+│   │   ├── scenarios.py    # chaos scenarios with ground-truth labels
+│   │   ├── engine.py       # 1 Hz loop, autopilot, snapshots, WebSocket broadcast
+│   │   └── main.py         # FastAPI REST + WebSocket + static UI
+│   └── tests/              # 30 behavioural tests
+├── frontend/src/
+│   ├── components/three/   # 3D topology + hero scenes
+│   ├── components/console/ # KPIs, chaos lab, forecast / RCA / service panels, logs
+│   ├── pages/              # Landing, Console, Recovery, Incidents, Analyzer, Benchmark
+│   └── lib/                # API client, live feed, store
+├── docs/screenshots/
+├── Dockerfile · docker-compose.yml · render.yaml
+└── README.md
+```
+
+---
+
+## Tech stack
+
+**Backend:** Python 3.12 · FastAPI · Uvicorn · WebSockets · Pydantic · pytest
+**Frontend:** React 18 · TypeScript · Vite · Three.js · React Three Fiber · Drei · Postprocessing (bloom) · Tailwind CSS · Framer Motion · Recharts · Zustand · React Router · Lucide
+**Deployment:** Docker (multi-stage) · Railway
+**AI tools:** Claude Code (Anthropic) was used as an AI coding assistant during development.
+
+---
+
+<div align="center">
+
+**Built by [Daanial Mirza](https://github.com/daanialmirza5) for Orca Coder.**
+
+*Riptide: predict · diagnose · recover.*
+
+</div>
