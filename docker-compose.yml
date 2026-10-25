@@ -1,0 +1,10 @@
+services:
+  riptide:
+    build: .
+    image: riptide:latest
+    ports:
+      - "8000:8000"
+    environment:
+      RIPTIDE_SEED: "42"
+      LOG_LEVEL: INFO
+    restart: unless-stopped

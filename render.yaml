@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: riptide
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: RIPTIDE_SEED
+        value: "42"
