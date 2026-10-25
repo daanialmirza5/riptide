@@ -1,0 +1,11 @@
+node_modules/
+dist/
+__pycache__/
+.pytest_cache/
+*.pyc
+.env
+.venv/
+*.pdf
+demo/*.webm
+demo/*.mp4
+demo/*.srt
