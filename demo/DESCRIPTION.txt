@@ -1,0 +1,26 @@
+Riptide: Cascading Failure Intelligence (Orca Coder · Track 01 Software & AI)
+
+Riptide is an AI system that predicts cascading software failures, identifies their root cause, and recommends the best recovery strategy before the whole system crashes. This demo has no voiceover; follow the on-screen subtitles.
+
+What you'll see:
+0:00  Landing page: what Riptide does and how it works (Observe → Predict → Diagnose → Simulate & Recover)
+0:20  Command Center: a live 3D digital twin of a 20-service e-commerce platform (edge, application and data tiers; dots are live requests)
+0:35  We inject a memory leak into the Payment service. Riptide never sees the injected fault; it only reads metrics and logs
+0:50  Forecast: Riptide detects heap growth, predicts time to failure, and shows the failure wavefront (payment → checkout → API gateway)
+1:05  Root cause: "Memory leak in Payment" with confidence and evidence (heap growth, preceding release, GC-pause logs, healthy dependencies)
+1:20  Recovery Lab: Riptide copies the live system once per strategy and simulates the next 2 minutes of each. Doing nothing crashes; restart only buys time; rollback keeps ~99.8% availability with zero services lost
+1:35  The recommended fix is applied and Payment recovers before crashing
+1:55  Incidents: automatic timeline, prediction lead time, failures prevented, downloadable post-mortem
+2:10  Autopilot: we inject a cache node failure and Riptide diagnoses Redis, simulates options and applies the fix by itself
+2:40  Benchmark (measured on independent simulated twins): 100% correct root cause (21/21), ~39 s average warning before the first failure, 94% vs 71% availability, 0 false alarms
+3:00  Log Analyzer: upload logs and Riptide infers service dependencies and names the probable origin
+
+How it works:
+- Prediction: per-service baselines learned while healthy, anomaly scoring, trend extrapolation to failure thresholds (time to failure), and probabilistic propagation over the service dependency graph
+- Root cause: personalised PageRank over anomalous services plus onset order, dependency isolation and failure signatures, with explainable evidence
+- Recovery: counterfactual simulation of every candidate fix (rollback, restart, scale-out, circuit breaker, failover, rate limiting, provider switch, rebalance) scored on availability, time to recover, services lost and risk
+
+Tech: Python, FastAPI, WebSockets · React, TypeScript, Vite, Three.js (React Three Fiber), Tailwind CSS, Recharts · Docker
+AI tools: Claude Code (Anthropic) was used as an AI coding assistant.
+
+Note: all results come from a simulated digital twin, not production traffic.
