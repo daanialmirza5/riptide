@@ -6,7 +6,7 @@
 
 ### See the outage *before* it cascades.
 
-An AI system that **predicts cascading software failures**, **pinpoints their root cause** and **simulates every recovery strategy**, all before the system crashes.
+A failure-intelligence engine that **forecasts cascading software failures** from statistical baselines and dependency-graph risk propagation, **pinpoints their root cause** and **simulates every recovery strategy**, all before the system crashes.
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-riptide--production.up.railway.app-22d3ee?style=for-the-badge&logo=railway&logoColor=white)](https://riptide-production-d8c4.up.railway.app)
 &nbsp;
@@ -59,7 +59,7 @@ Riptide watches a live, 20-service e-commerce platform (a **digital twin**). It:
 3. names the **root cause with evidence**,
 4. **forks the system once per candidate fix and simulates two minutes into the future** of each, so it can recommend, or automatically apply, the fix that actually works.
 
-> Riptide never sees what was injected. Chaos scenarios only change the twin's physics; the AI works from **metrics and logs alone**.
+> Riptide never sees what was injected. Chaos scenarios only change the twin's physics; the engine works from **metrics and logs alone**.
 
 ---
 
