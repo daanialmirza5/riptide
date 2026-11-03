@@ -308,7 +308,7 @@ riptide/
 
 <div align="center">
 
-**Built by [Daanial Mirza](https://github.com/daanialmirza5) for Orca Coder.**
+**Built by [Daanial Baig](https://github.com/daanialmirza5) for Orca Coder.**
 
 *Riptide: predict · diagnose · recover.*
 
